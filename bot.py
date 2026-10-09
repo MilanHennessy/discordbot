@@ -5,6 +5,7 @@ import discord
 from dotenv import load_dotenv
 
 import fantasy
+import hockey
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -42,6 +43,23 @@ async def on_message(message):
                 )
             except asyncio.TimeoutError:
                 report = "FANTASY_ERROR: ESPN is taking too long. Try again in a bit."
+        await message.channel.send(report)
+        return
+
+    if message.content.lower().startswith("!hockey"):
+        name = message.content[len("!hockey"):].strip()
+        if not name:
+            await message.channel.send(
+                "Usage: !hockey <team name>  (e.g. !hockey Winter Wonderland)"
+            )
+            return
+        async with message.channel.typing():
+            try:
+                report = await asyncio.wait_for(
+                    asyncio.to_thread(hockey.build_report, name), timeout=60
+                )
+            except asyncio.TimeoutError:
+                report = "HOCKEY_ERROR: ESPN is taking too long. Try again in a bit."
         await message.channel.send(report)
         return
 

@@ -1,17 +1,23 @@
-"""ESPN fantasy basketball lookups. Sync functions; caller offloads to a thread."""
+"""ESPN fantasy hockey lookups. Sync functions; caller offloads to a thread.
+
+Mirrors fantasy.py (basketball). Hockey differences are handled inline:
+- slot filter excludes 'Bench'/'IR' instead of 'BE'/'IR'
+- the hockey lib's always-'Center' slot_position artifact is display-only
+  (slot labels are used for bench exclusion, not shown to users)
+"""
 
 import logging
 import os
 import time
 
 from dotenv import load_dotenv
-from espn_api.basketball import League
+from espn_api.hockey import League
 
 load_dotenv()  # no-op if bot.py already loaded .env; makes direct import safe
 
-logger = logging.getLogger("fantasy")
+logger = logging.getLogger("hockey")
 
-_CACHE_TTL_SECONDS = 120  # reuse one snapshot for back-to-back !fantasy calls
+_CACHE_TTL_SECONDS = 120  # reuse one snapshot for back-to-back !hockey calls
 _cache = {"at": 0.0, "league": None}
 _config = None
 
@@ -21,8 +27,8 @@ def _get_config():
     global _config
     if _config is None:
         _config = {
-            "league_id": int(os.environ["ESPN_LEAGUE_ID"]),
-            "year": int(os.environ["ESPN_SEASON"]),
+            "league_id": int(os.environ["ESPN_HOCKEY_LEAGUE_ID"]),
+            "year": int(os.environ["ESPN_HOCKEY_SEASON"]),
             "espn_s2": os.environ["ESPN_S2"],
             "swid": os.environ["ESPN_SWID"],
         }
@@ -73,14 +79,14 @@ def build_report(team_name):
     try:
         league = get_league()
     except Exception:  # noqa: BLE001 - surfaced as user-friendly text
-        logger.exception("ESPN league fetch failed")
-        return "FANTASY_ERROR: could not reach ESPN right now. Try again in a bit."
+        logger.exception("ESPN hockey league fetch failed")
+        return "HOCKEY_ERROR: could not reach ESPN right now. Try again in a bit."
 
     team = find_team(league, team_name)
     if team is None:
         names = "\n".join(f"- {t.team_name}" for t in league.teams)
         return (
-            f"FANTASY_ERROR: couldn't find a team matching "
+            f"HOCKEY_ERROR: couldn't find a team matching "
             f"'{team_name}'. Try one of:\n{names}"
         )
 
@@ -102,7 +108,7 @@ def build_report(team_name):
 
     if matchup is None:
         return join_lines(
-            f"Your basketball fantasy team {team.team_name} is currently "
+            f"Your hockey fantasy team {team.team_name} is currently "
             f"{place} place.",
             "No matchup found for this week.",
             "Good Luck",
@@ -116,12 +122,14 @@ def build_report(team_name):
     opp_name = getattr(opponent, "team_name", opponent)
 
     lineup = matchup.home_lineup if home_is_us else matchup.away_lineup
-    starters = [p for p in (lineup or []) if p.slot_position not in ("BE", "IR", "")]
+    starters = [
+        p for p in (lineup or []) if p.slot_position not in ("Bench", "IR", "")
+    ]
     top = sorted(starters, key=lambda p: p.points or 0, reverse=True)[:3]
 
     if not top:
         return join_lines(
-            f"Your basketball fantasy team {team.team_name} is currently "
+            f"Your hockey fantasy team {team.team_name} is currently "
             f"{place} place.",
             f"Your current score in matchup is {us_score} - "
             f"{them_score} vs {opp_name}.",
@@ -131,7 +139,7 @@ def build_report(team_name):
 
     contribs = ", ".join(f"{p.name} ({p.points})" for p in top)
     return join_lines(
-        f"Your basketball fantasy team {team.team_name} is currently "
+        f"Your hockey fantasy team {team.team_name} is currently "
         f"{place} place.",
         f"Your current score in matchup is {us_score} - "
         f"{them_score} vs {opp_name}.",
