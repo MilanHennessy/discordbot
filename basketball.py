@@ -9,9 +9,9 @@ from espn_api.basketball import League
 
 load_dotenv()  # no-op if bot.py already loaded .env; makes direct import safe
 
-logger = logging.getLogger("fantasy")
+logger = logging.getLogger("basketball")
 
-_CACHE_TTL_SECONDS = 120  # reuse one snapshot for back-to-back !fantasy calls
+_CACHE_TTL_SECONDS = 120  # reuse one snapshot for back-to-back !basketball calls
 _cache = {"at": 0.0, "league": None}
 _config = None
 
@@ -74,13 +74,13 @@ def build_report(team_name):
         league = get_league()
     except Exception:  # noqa: BLE001 - surfaced as user-friendly text
         logger.exception("ESPN league fetch failed")
-        return "FANTASY_ERROR: could not reach ESPN right now. Try again in a bit."
+        return "BASKETBALL_ERROR: could not reach ESPN right now. Try again in a bit."
 
     team = find_team(league, team_name)
     if team is None:
         names = "\n".join(f"- {t.team_name}" for t in league.teams)
         return (
-            f"FANTASY_ERROR: couldn't find a team matching "
+            f"BASKETBALL_ERROR: couldn't find a team matching "
             f"'{team_name}'. Try one of:\n{names}"
         )
 
@@ -105,7 +105,7 @@ def build_report(team_name):
             f"Your basketball fantasy team {team.team_name} is currently "
             f"{place} place.",
             "No matchup found for this week.",
-            "Good Luck",
+            "Good Luck!",
         )
 
     home, away = matchup.home_team, matchup.away_team
@@ -126,7 +126,7 @@ def build_report(team_name):
             f"Your current score in matchup is {us_score} - "
             f"{them_score} vs {opp_name}.",
             "No games counted yet this week.",
-            "Good Luck",
+            "Good Luck!",
         )
 
     contribs = ", ".join(f"{p.name} ({p.points})" for p in top)
@@ -136,5 +136,5 @@ def build_report(team_name):
         f"Your current score in matchup is {us_score} - "
         f"{them_score} vs {opp_name}.",
         f"Your top contributors this week are {contribs}.",
-        "Good Luck",
+        "Good Luck!",
     )

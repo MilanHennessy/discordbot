@@ -1,6 +1,6 @@
 """ESPN fantasy hockey lookups. Sync functions; caller offloads to a thread.
 
-Mirrors fantasy.py (basketball). Hockey differences are handled inline:
+Mirrors basketball.py. Hockey differences are handled inline:
 - slot filter excludes 'Bench'/'IR' instead of 'BE'/'IR'
 - the hockey lib's always-'Center' slot_position artifact is display-only
   (slot labels are used for bench exclusion, not shown to users)
@@ -111,7 +111,7 @@ def build_report(team_name):
             f"Your hockey fantasy team {team.team_name} is currently "
             f"{place} place.",
             "No matchup found for this week.",
-            "Good Luck",
+            "Good Luck!",
         )
 
     home, away = matchup.home_team, matchup.away_team
@@ -134,7 +134,7 @@ def build_report(team_name):
             f"Your current score in matchup is {us_score} - "
             f"{them_score} vs {opp_name}.",
             "No games counted yet this week.",
-            "Good Luck",
+            "Good Luck!",
         )
 
     contribs = ", ".join(f"{p.name} ({p.points})" for p in top)
@@ -144,5 +144,5 @@ def build_report(team_name):
         f"Your current score in matchup is {us_score} - "
         f"{them_score} vs {opp_name}.",
         f"Your top contributors this week are {contribs}.",
-        "Good Luck",
+        "Good Luck!",
     )

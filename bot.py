@@ -4,7 +4,7 @@ import os
 import discord
 from dotenv import load_dotenv
 
-import fantasy
+import basketball
 import hockey
 
 load_dotenv()
@@ -29,20 +29,20 @@ async def on_message(message):
         await message.channel.send("pong")
         return
 
-    if message.content.lower().startswith("!fantasy"):
-        name = message.content[len("!fantasy"):].strip()
+    if message.content.lower().startswith("!basketball"):
+        name = message.content[len("!basketball"):].strip()
         if not name:
             await message.channel.send(
-                "Usage: !fantasy <team name>  (e.g. !fantasy The quintessential quintuplets)"
+                "Usage: !basketball <team name>  (e.g. !basketball The quintessential quintuplets)"
             )
             return
         async with message.channel.typing():
             try:
                 report = await asyncio.wait_for(
-                    asyncio.to_thread(fantasy.build_report, name), timeout=60
+                    asyncio.to_thread(basketball.build_report, name), timeout=60
                 )
             except asyncio.TimeoutError:
-                report = "FANTASY_ERROR: ESPN is taking too long. Try again in a bit."
+                report = "BASKETBALL_ERROR: ESPN is taking too long. Try again in a bit."
         await message.channel.send(report)
         return
 
