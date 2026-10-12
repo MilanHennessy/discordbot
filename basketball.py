@@ -7,6 +7,7 @@ import time
 from dotenv import load_dotenv
 from espn_api.basketball import League
 
+import freeagents
 import predictor
 
 load_dotenv()  # no-op if bot.py already loaded .env; makes direct import safe
@@ -70,21 +71,6 @@ def join_lines(*sentences):
     return "\n".join(sentences)
 
 
-def _free_agent_score(player):
-    """Rank by projected average, falling back to last season average.
-
-    Preseason: totals are 0, so projections are the only signal.
-    In-season: projected avg still reflects expected rest-of-week value.
-    Injured/OUT players sink to the bottom instead of being hidden,
-    so users see *why* a big name isn't recommended.
-    """
-    proj = getattr(player, "projected_avg_points", 0) or 0
-    base = proj if proj else (getattr(player, "avg_points", 0) or 0)
-    if getattr(player, "injured", False):
-        base -= 1000  # keeps them listed, but last
-    return base
-
-
 def build_free_agents(count=5):
     """Return a short ranked free-agent summary, or a *_ERROR sentinel."""
     try:
@@ -94,25 +80,12 @@ def build_free_agents(count=5):
         return "BASKETBALL_ERROR: could not reach ESPN right now. Try again in a bit."
 
     try:
-        agents = league.free_agents(size=30)  # over-fetch, we filter + rank
+        agents = league.free_agents(size=30)  # over-fetch, ranking happens below
     except Exception:  # noqa: BLE001 - surfaced as user-friendly text
         logger.exception("ESPN free agent fetch failed")
         return "BASKETBALL_ERROR: could not load free agents right now. Try again in a bit."
 
-    ranked = sorted(agents, key=_free_agent_score, reverse=True)[:count]
-    if not ranked:
-        return "No free agents available right now."
-
-    lines = ["Top basketball free agents to pick up:"]
-    for i, p in enumerate(ranked, start=1):
-        proj = getattr(p, "projected_avg_points", 0) or 0
-        avg = getattr(p, "avg_points", 0) or 0
-        flag = " (OUT)" if getattr(p, "injured", False) else ""
-        lines.append(
-            f"{i}. {p.name} ({p.position}, {p.proTeam}){flag} "
-            f"- proj {proj:.1f}/game, avg {avg:.1f}/game"
-        )
-    return "\n".join(lines)
+    return freeagents.basketball_rank_and_format(agents, count)
 
 
 def build_report(team_name):
