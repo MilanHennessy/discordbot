@@ -7,6 +7,8 @@ import time
 from dotenv import load_dotenv
 from espn_api.basketball import League
 
+import predictor
+
 load_dotenv()  # no-op if bot.py already loaded .env; makes direct import safe
 
 logger = logging.getLogger("basketball")
@@ -116,8 +118,28 @@ def build_report(team_name):
     opp_name = getattr(opponent, "team_name", opponent)
 
     lineup = matchup.home_lineup if home_is_us else matchup.away_lineup
+    opp_lineup = matchup.away_lineup if home_is_us else matchup.home_lineup
     starters = [p for p in (lineup or []) if p.slot_position not in ("BE", "IR", "")]
+    opp_starters = [
+        p for p in (opp_lineup or []) if p.slot_position not in ("BE", "IR", "")
+    ]
     top = sorted(starters, key=lambda p: p.points or 0, reverse=True)[:3]
+
+    # Win chance from live score + pace + season record. Moves as games finish.
+    us_record = (team.wins, team.losses, team.ties)
+    opp = getattr(opponent, "team_id", None)  # opponent may be a plain id
+    opp_team = next(
+        (t for t in league.teams if t.team_id == getattr(opponent, "team_id", opp)),
+        None,
+    )
+    them_record = (
+        (opp_team.wins, opp_team.losses, opp_team.ties)
+        if opp_team is not None
+        else (0, 0, 0)
+    )
+    _, chance_text = predictor.summarize_matchup(
+        starters, opp_starters, us_score, them_score, us_record, them_record
+    )
 
     if not top:
         return join_lines(
@@ -126,6 +148,7 @@ def build_report(team_name):
             f"Your current score in matchup is {us_score} - "
             f"{them_score} vs {opp_name}.",
             "No games counted yet this week.",
+            chance_text,
             "Good Luck!",
         )
 
@@ -136,5 +159,6 @@ def build_report(team_name):
         f"Your current score in matchup is {us_score} - "
         f"{them_score} vs {opp_name}.",
         f"Your top contributors this week are {contribs}.",
+        chance_text,
         "Good Luck!",
     )
