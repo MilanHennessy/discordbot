@@ -34,7 +34,18 @@ async def on_message(message):
         if not name:
             await message.channel.send(
                 "Usage: !basketball <team name>  (e.g. !basketball The quintessential quintuplets)"
+                " or !basketball fa for top free agents"
             )
+            return
+        if name.lower() == "fa":
+            async with message.channel.typing():
+                try:
+                    report = await asyncio.wait_for(
+                        asyncio.to_thread(basketball.build_free_agents), timeout=60
+                    )
+                except asyncio.TimeoutError:
+                    report = "BASKETBALL_ERROR: ESPN is taking too long. Try again in a bit."
+            await message.channel.send(report)
             return
         async with message.channel.typing():
             try:
@@ -51,7 +62,18 @@ async def on_message(message):
         if not name:
             await message.channel.send(
                 "Usage: !hockey <team name>  (e.g. !hockey Winter Wonderland)"
+                " or !hockey fa for top free agents"
             )
+            return
+        if name.lower() == "fa":
+            async with message.channel.typing():
+                try:
+                    report = await asyncio.wait_for(
+                        asyncio.to_thread(hockey.build_free_agents), timeout=60
+                    )
+                except asyncio.TimeoutError:
+                    report = "HOCKEY_ERROR: ESPN is taking too long. Try again in a bit."
+            await message.channel.send(report)
             return
         async with message.channel.typing():
             try:

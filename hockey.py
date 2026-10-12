@@ -76,6 +76,129 @@ def join_lines(*sentences):
     return "\n".join(sentences)
 
 
+def _free_agent_score(player, year):
+    """Rank by projected fantasy points, falling back to recent form.
+
+    Skaters and goalies project on different scales, so goalies are
+    scaled down to roughly a skater's range before comparing. This is
+    basic on purpose: just enough that one position can't sweep the list.
+    """
+    stats = getattr(player, "stats", {}) or {}
+
+    def _total(key):
+        entry = stats.get(key) or {}
+        total = (entry.get("total") or {})
+        if isinstance(total, dict):
+            for k in ("appliedTotal", "total", "PTS", "points"):
+                if k in total and isinstance(total[k], (int, float)):
+                    return total[k]
+            # points + assists + powerplay points is a decent skater proxy
+            nums = [total.get(k, 0) for k in ("G", "A", "PPG", "PPA")]
+            if any(isinstance(v, (int, float)) and v for v in nums):
+                return sum(v for v in nums if isinstance(v, (int, float)))
+            vals = [v for v in total.values() if isinstance(v, (int, float))]
+            return sum(vals) / len(vals) if vals else 0
+        return 0
+
+    base = (
+        _total(f"Projected {year}")
+        or _total(f"Last 30 {year}")
+        or _total(f"Total {year}")
+    )
+    if (getattr(player, "position", "") or "").lower() == "goalie":
+        base = base / 10  # goalie raw totals dwarf skater points; rescale
+    if getattr(player, "injured", False):
+        base -= 100000  # keeps them listed, but last
+    return base
+
+
+def _free_agent_points(player, year):
+    """Single readable number for display: projected fantasy points.
+
+    Goalie raw totals (saves, minutes) dwarf skater points, so goalies
+    are shown on the same /10 scale used for ranking.
+    """
+    stats = getattr(player, "stats", {}) or {}
+    entry = stats.get(f"Projected {year}") or {}
+    total = (entry.get("total") or {})
+    pts = None
+    for k in ("appliedTotal", "total", "PTS", "points"):
+        if isinstance(total, dict) and k in total:
+            pts = total[k]
+            break
+    if pts is None and isinstance(total, dict):
+        parts = [total.get(k, 0) for k in ("G", "A", "PPG", "PPA")]
+        if any(isinstance(v, (int, float)) and v for v in parts):
+            pts = sum(v for v in parts if isinstance(v, (int, float)))
+    if pts is None:
+        pts = _free_agent_score(player, year)
+        if (getattr(player, "position", "") or "").lower() != "goalie":
+            return pts  # already scaled inside the scorer
+    if (getattr(player, "position", "") or "").lower() == "goalie":
+        try:
+            return float(pts) / 10
+        except (TypeError, ValueError):
+            return pts
+    return pts
+
+
+def build_free_agents(count=5):
+    """Return a short ranked free-agent summary, or a *_ERROR sentinel."""
+    try:
+        league = get_league()
+    except Exception:  # noqa: BLE001 - surfaced as user-friendly text
+        logger.exception("ESPN hockey league fetch failed")
+        return "HOCKEY_ERROR: could not reach ESPN right now. Try again in a bit."
+
+    try:
+        agents = league.free_agents(size=60)  # over-fetch; we pick per position
+    except Exception:  # noqa: BLE001 - surfaced as user-friendly text
+        logger.exception("ESPN free agent fetch failed")
+        return "HOCKEY_ERROR: could not load free agents right now. Try again in a bit."
+
+    year = _get_config()["year"]
+
+    # Best healthy skater and best healthy goalie, then best of the rest.
+    # Keeps one position from sweeping the whole list.
+    def healthy(players):
+        return [p for p in players if not getattr(p, "injured", False)]
+
+    skaters = [p for p in agents if (p.position or "").lower() != "goalie"]
+    goalies = [p for p in agents if (p.position or "").lower() == "goalie"]
+    ranked_skaters = sorted(healthy(skaters),
+                            key=lambda p: _free_agent_score(p, year), reverse=True)
+    ranked_goalies = sorted(healthy(goalies),
+                            key=lambda p: _free_agent_score(p, year), reverse=True)
+    rest = sorted(healthy(agents),
+                  key=lambda p: _free_agent_score(p, year), reverse=True)
+
+    picks = []
+    for p in ranked_skaters[:3] + ranked_goalies[:1] + rest:
+        if p not in picks:
+            picks.append(p)
+        if len(picks) >= count:
+            break
+    if not picks:  # everyone injured; fall back to raw ranking
+        picks = sorted(agents, key=lambda p: _free_agent_score(p, year),
+                       reverse=True)[:count]
+    if not picks:
+        return "No free agents available right now."
+
+    lines = ["Top hockey free agents to pick up:"]
+    for i, p in enumerate(picks, start=1):
+        pts = _free_agent_points(p, year)
+        try:
+            pts_txt = f"{float(pts):.1f}"
+        except (TypeError, ValueError):
+            pts_txt = "n/a"
+        flag = " (OUT)" if getattr(p, "injured", False) else ""
+        lines.append(
+            f"{i}. {p.name} ({p.position}, {p.proTeam}){flag} "
+            f"- proj {pts_txt} pts"
+        )
+    return "\n".join(lines)
+
+
 def build_report(team_name):
     """Return the Discord message text for a team, or a *_ERROR sentinel."""
     try:
