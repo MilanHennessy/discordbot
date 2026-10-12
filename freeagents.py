@@ -67,6 +67,8 @@ def _hockey_goalie_score(player, key):
 
     Raw save and minute totals are on a useless scale, so we build a
     small number from the stats that actually win fantasy weeks.
+    Edges are capped and volume-scaled so a 2-game hot streak can't
+    outrank a full season of work.
     """
     stats = getattr(player, "stats", {}) or {}
     total = (stats.get(key) or {}).get("total") or {}
@@ -85,10 +87,11 @@ def _hockey_goalie_score(player, key):
     sv_pct = num("SV%", "SVP")
     gaa = num("GAA")
     games = num("GS", "GP", "30") or 1
-    edge = (sv_pct - 0.900) * 100 if sv_pct else 0  # vs ~league-average .900
-    gaa_edge = (3.0 - gaa) * 2 if gaa else 0  # vs rough-average 3.00 GAA
-    per_game = (wins + shutouts * 2 + edge + gaa_edge) / games
-    return per_game * 82  # full-season scale, comparable to skater totals
+    edge = max(min((sv_pct - 0.900) * 100, 5), -5) if sv_pct else 0
+    gaa_edge = max(min((3.0 - gaa) * 2, 5), -5) if gaa else 0
+    volume = min(games / 20, 1.0)  # trust 20+ games fully, discount less
+    # Season-totals scale (not per-game): volume-heavy, capped rate bonus.
+    return (wins + shutouts * 2) * volume + (edge + gaa_edge) * volume
 
 
 def score_hockey(player, year):

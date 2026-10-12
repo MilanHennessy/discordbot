@@ -15,6 +15,7 @@ from espn_api.hockey import League
 
 import freeagents
 import predictor
+import trades
 
 load_dotenv()  # no-op if bot.py already loaded .env; makes direct import safe
 
@@ -92,6 +93,29 @@ def build_free_agents(count=5):
         return "HOCKEY_ERROR: could not load free agents right now. Try again in a bit."
 
     return freeagents.hockey_rank_and_format(agents, _get_config()["year"], count)
+
+
+def build_trades(team_name):
+    """Return a list of trade dicts for bot.py to page through."""
+    try:
+        league = get_league()
+    except Exception:  # noqa: BLE001 - surfaced as user-friendly text
+        logger.exception("ESPN hockey league fetch failed")
+        return "HOCKEY_ERROR: could not reach ESPN right now. Try again in a bit."
+
+    team = find_team(league, team_name)
+    if team is None:
+        names = "\n".join(f"- {t.team_name}" for t in league.teams)
+        return (
+            f"HOCKEY_ERROR: couldn't find a team matching "
+            f"'{team_name}'. Try one of:\n{names}"
+        )
+
+    year = _get_config()["year"]
+    found = trades.suggest_trades(team, league.teams, "hockey", year)
+    for t in found:
+        t["my_name"] = team.team_name
+    return found
 
 
 def build_report(team_name):

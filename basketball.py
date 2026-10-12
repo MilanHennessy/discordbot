@@ -9,6 +9,7 @@ from espn_api.basketball import League
 
 import freeagents
 import predictor
+import trades
 
 load_dotenv()  # no-op if bot.py already loaded .env; makes direct import safe
 
@@ -86,6 +87,28 @@ def build_free_agents(count=5):
         return "BASKETBALL_ERROR: could not load free agents right now. Try again in a bit."
 
     return freeagents.basketball_rank_and_format(agents, count)
+
+
+def build_trades(team_name):
+    """Return a list of trade dicts for bot.py to page through."""
+    try:
+        league = get_league()
+    except Exception:  # noqa: BLE001 - surfaced as user-friendly text
+        logger.exception("ESPN league fetch failed")
+        return "BASKETBALL_ERROR: could not reach ESPN right now. Try again in a bit."
+
+    team = find_team(league, team_name)
+    if team is None:
+        names = "\n".join(f"- {t.team_name}" for t in league.teams)
+        return (
+            f"BASKETBALL_ERROR: couldn't find a team matching "
+            f"'{team_name}'. Try one of:\n{names}"
+        )
+
+    found = trades.suggest_trades(team, league.teams, "basketball")
+    for t in found:
+        t["my_name"] = team.team_name
+    return found
 
 
 def build_report(team_name):
