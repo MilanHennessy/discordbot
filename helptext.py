@@ -31,5 +31,6 @@ def build_help():
         ("!hockey fa", "top 5 free agents to pick up"),
         ("!hockey <team name> traderec", "up to 3 trade ideas, "
          "browse with ◀ ▶ reactions"),
+        ("!hockeypull", "pull a random 2025-26 Upper Deck Series 1 card"),
     ])
     return "\n\n".join([general, basketball, hockey])

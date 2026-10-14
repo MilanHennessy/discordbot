@@ -5,6 +5,7 @@ import discord
 from dotenv import load_dotenv
 
 import basketball
+import cards
 import helptext
 import hockey
 import trades
@@ -87,6 +88,19 @@ async def on_message(message):
         return
     if message.content.lower().strip() == "!help":
         await message.channel.send(helptext.build_help())
+        return
+    if message.content.lower().strip() == "!hockeypull":
+        player, team, tier, value = await asyncio.to_thread(cards.pull_card)
+        count = await asyncio.to_thread(
+            cards.save_pull, player, team, tier, value
+        )
+        embed_data, image_url = await asyncio.to_thread(
+            cards.build_pull_embed, player, team, tier, value, count
+        )
+        embed = discord.Embed.from_dict(embed_data)
+        if image_url:
+            embed.set_thumbnail(url=image_url)
+        await message.channel.send(embed=embed)
         return
 
     if message.content.lower().startswith("!basketball"):
